@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-ecovis-red: #E10600;
+  --color-ecovis-black: #080808;
+  --color-ecovis-dark: #151515;
+  --color-ecovis-white: #FFFFFF;
+  --color-ecovis-gray: #F4F4F2;
+  
+  --font-sans: var(--font-inter), sans-serif;
+  --font-heading: var(--font-space-grotesk), sans-serif;
+}
+
+:root {
+  --background: #F4F4F2; /* Light Gray default background */
+  --foreground: #080808;
+}
+
+html.lenis, html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography Clamping for massive editorial headers */
+h1, h2, h3, h4, h5, h6, .font-heading {
+  font-family: var(--font-heading);
+}
+
+.text-fluid-hero {
+  font-size: clamp(40px, 6.5vw, 110px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+/* Custom Cursor default hide */
+@media (pointer: fine) {
+  body {
+    cursor: none;
+  }
+  a, button {
+    cursor: none;
+  }
+}
+
+
+/* ---------------------------------------------------------------------------
+   RKCA diagram: one signal loops every 2.4s while a value is selected.
+   comet (along the line) -> drop (down to the globe) -> flash (on the rim).
+   The delays line each step up with the end of the previous one.
+--------------------------------------------------------------------------- */
+@keyframes rkca-comet {
+  from { stroke-dashoffset: 0.16; }
+  to { stroke-dashoffset: -1; }
+}
+
+@keyframes rkca-drop {
+  0% { top: -1.5rem; opacity: 0; }
+  3% { opacity: 1; }
+  20% { top: 100%; opacity: 1; }
+  23%, 100% { top: 100%; opacity: 0; }
+}
+
+@keyframes rkca-flash {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  8% { opacity: 0.85; }
+  45%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+}
+
+.rkca-comet {
+  stroke-dasharray: 0.16 1.4;
+  animation: rkca-comet 2.4s linear infinite;
+}
+
+.rkca-drop {
+  animation: rkca-drop 2.4s linear 2.1s infinite backwards;
+}
+
+.rkca-flash {
+  opacity: 0;
+  animation: rkca-flash 2.4s ease-out 2.5s infinite backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rkca-comet, .rkca-drop, .rkca-flash {
+    animation: none;
+    display: none;
+  }
+}
