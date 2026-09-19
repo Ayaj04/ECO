@@ -1,60 +1,79 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { motion, useInView } from "framer-motion";
-import { Pause, Play } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import Image from "next/image";
 import clsx from "clsx";
-import DottedGlobe from "@/components/ui/DottedGlobe";
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useMotionValueEvent,
+  useScroll,
+  useSpring,
+  useTransform,
+} from "framer-motion";
+import { NODE_OFFSETS, buildRibbon, type RibbonGeometry } from "./rkcaRibbon";
+import { MAP_ARCS } from "./mapArcs";
 
-const rkcaValues = [
-  {
-    letter: "R",
-    title: "Responsibility",
-    desc: "Unwavering ethical stewardship, transparency, and accountability across every jurisdiction.",
-  },
-  {
-    letter: "K",
-    title: "Knowledge",
-    desc: "Deep multidisciplinary intelligence across finance, technology, compliance, and law.",
-  },
-  {
-    letter: "C",
-    title: "Commitment",
-    desc: "Enduring partnership dedicated to navigating complex landscapes and building enterprise value.",
-  },
-  {
-    letter: "A",
-    title: "Acknowledgment",
-    desc: "Respecting the uniqueness of each business challenge and driving shared, measurable success.",
-  },
-];
+const values = [
+  { letter: "R", title: "Responsibility", side: "right" },
+  { letter: "K", title: "Knowledge", side: "left" },
+  { letter: "C", title: "Commitment", side: "right" },
+  { letter: "A", title: "Accountability", side: "left" },
+] as const;
 
-/** Time each value stays selected while the diagram cycles on its own. */
-const AUTOPLAY_MS = 5600;
-
-/*
- * Connector geometry, in SVG user units. The four nodes sit in a 4-column grid,
- * so their centres are at 12.5% / 37.5% / 62.5% / 87.5% of the width, which is
- * 125 / 375 / 625 / 875 on a 1000-wide canvas. All lines converge on the hub.
+/**
+ * The world map artwork is 1774 x 887. These are positions inside it, in percent:
+ * the hub the ribbon lands on (India) and the other city points. The arcs between
+ * them are in mapArcs.ts, in the artwork's own units.
  */
-const VB_W = 1000;
-const VB_H = 240;
-const HUB_X = VB_W / 2;
-const NODE_X = [125, 375, 625, 875];
+const MAP = {
+  width: 1774,
+  height: 887,
+  hub: { x: 65.44, y: 47.46 },
+  dots: [
+    { x: 18.15, y: 41.49 },
+    { x: 42.11, y: 32.64 },
+    { x: 57.27, y: 39.46 },
+    { x: 57.33, y: 46.34 },
+    { x: 49.04, y: 68.09 },
+    { x: 84.39, y: 45.1 },
+    { x: 85.91, y: 82.87 },
+  ],
+} as const;
 
-const connectorPaths = NODE_X.map((x) => {
-  const dx = x - HUB_X;
-  const outer = Math.abs(dx) > 300;
-  const c1y = outer ? 96 : 120;
-  const c2x = HUB_X + dx * (outer ? 0.34 : 0.16);
-  const c2y = outer ? VB_H - 8 : VB_H - 78;
-  return `M ${x} 0 C ${x} ${c1y}, ${c2x} ${c2y}, ${HUB_X} ${VB_H}`;
-});
+/**
+ * The map always fills the screen edge to edge. On screens narrower than the minimum it is kept at
+ * that width and shifted so the hub stays in the middle, so it never shrinks to something unreadable.
+ */
+const MAP_WIDTH = "max(100%, 720px)";
+const MAP_LEFT = `clamp(calc(100% - ${MAP_WIDTH}), calc(50% - ${MAP.hub.x / 100} * ${MAP_WIDTH}), 0px)`;
 
-/** Stroke width is in user units, which get scaled with the SVG, so it shrinks less on small screens. */
-const LINE_WIDTH = "[stroke-width:2.6px] sm:[stroke-width:2px] lg:[stroke-width:1.4px]";
-const GLOW = "drop-shadow(0 0 5px rgba(225, 6, 0, 0.75))";
+/** The map starts this far above the bottom of the diagram, so the ribbon has less distance to cover. */
+const MAP_OVERLAP = "clamp(48px, 7vw, 150px)";
+
+/** The artwork has empty space under the map. Pull the next section up into it. */
+const MAP_TRIM = "clamp(20px, 4vw, 90px)";
+
+/** The ribbon's waves swing this much wider than the artwork's, so it curves more and runs shorter. */
+const KX = 1.45;
+
+/**
+ * Layout scale (--k) and the sizes derived from it. Everything is CSS, so the
+ * server and browser agree on first paint. The ribbon is then fitted to the
+ * measured positions of the nodes and of the hub.
+ */
+const STAGE_STYLE = {
+  "--kx": `calc(var(--k) * ${KX})`,
+  "--row": "max(118px, calc(170px * var(--k)))",
+  "--top": "max(90px, calc(130px * var(--k)))",
+  "--node": "max(44px, calc(84px * var(--k)))",
+} as React.CSSProperties;
+
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
+
+/** Fade the ribbon in at the top, under the heading. */
+const RIBBON_FADE = "linear-gradient(to bottom, transparent 0px, #000 56px)";
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -79,70 +98,121 @@ function usePrefersReducedMotion() {
 
 export default function RKCAGlobalSection() {
   const reduceMotion = usePrefersReducedMotion();
-  const diagramRef = useRef<HTMLDivElement>(null);
-  const revealed = useInView(diagramRef, { once: true, amount: 0.15 });
-  const onScreen = useInView(diagramRef, { amount: 0.3 });
+  const uid = useId().replace(/:/g, "");
 
-  const [active, setActive] = useState(0);
-  const [pulse, setPulse] = useState(0);
-  const [autoplay, setAutoplay] = useState(true);
+  const sectionRef = useRef<HTMLElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLSpanElement>(null);
+  const nodeRefs = useRef<Array<HTMLDivElement | null>>([]);
 
-  const running = autoplay && onScreen && !reduceMotion;
+  const [geo, setGeo] = useState<RibbonGeometry | null>(null);
+  const [mapScale, setMapScale] = useState(0.8);
+  const [reached, setReached] = useState(0);
+  const [landed, setLanded] = useState(false);
 
-  // Cycle through the four values until the visitor takes over.
+  // Scroll drives how much of the ribbon is drawn. The track spans the ribbon's full height,
+  // from the top of the stage down to the hub, so the tip stays near the same spot on screen.
+  const { scrollYProgress } = useScroll({ target: trackRef, offset: ["start 76%", "end 64%"] });
+  const smooth = useSpring(scrollYProgress, { stiffness: 140, damping: 26, mass: 0.35 });
+  const progress = useTransform(smooth, (v) => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0));
+
+  const sync = useCallback((p: number, g: RibbonGeometry) => {
+    setReached(g.fractions.filter((f) => p >= f - 0.012).length);
+    setLanded(p >= 0.985);
+  }, []);
+
+  useMotionValueEvent(progress, "change", (p) => {
+    if (geo) sync(p, geo);
+  });
+
+  // Fit the ribbon to the real node and hub positions, and refit when the layout changes size.
   useEffect(() => {
-    if (!running) return;
-    const id = window.setTimeout(() => {
-      setActive((a) => (a + 1) % rkcaValues.length);
-      setPulse((p) => p + 1);
-    }, AUTOPLAY_MS);
-    return () => window.clearTimeout(id);
-  }, [running, active, pulse]);
+    const section = sectionRef.current;
+    const stage = stageRef.current;
+    const map = mapRef.current;
+    if (!section || !stage || !map) return;
 
-  const select = (index: number) => {
-    setAutoplay(false);
-    setActive(index);
-    setPulse((p) => p + 1);
-  };
+    const measure = () => {
+      const end = endRef.current;
+      const els = nodeRefs.current;
+      if (!end || els.length < values.length || els.some((el) => !el)) return;
 
-  const drawIn = (i: number) =>
-    reduceMotion ? { duration: 0 } : { duration: 1.5, delay: 0.25 + i * 0.12, ease: EASE_OUT };
+      const secRect = section.getBoundingClientRect();
+      const sr = stage.getBoundingClientRect();
+      const k = parseFloat(getComputedStyle(stage).getPropertyValue("--k")) || 1;
+      const nodes = els.map((el) => {
+        const r = el!.getBoundingClientRect();
+        return { x: r.left + r.width / 2 - sr.left, y: r.top + r.height / 2 - sr.top };
+      });
+      const er = end.getBoundingClientRect();
+
+      const next = buildRibbon({
+        width: sr.width,
+        viewX: secRect.left - sr.left,
+        viewW: secRect.width,
+        k,
+        kx: k * KX,
+        nodes,
+        end: { x: er.left - sr.left, y: er.top - sr.top },
+      });
+      setGeo(next);
+      setMapScale(map.offsetWidth / MAP.width);
+      sync(progress.get(), next);
+    };
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(section);
+    observer.observe(stage);
+    observer.observe(map);
+    return () => observer.disconnect();
+  }, [progress, sync]);
+
+  // With reduced motion everything is simply shown, drawn and landed.
+  const shownReached = reduceMotion ? values.length : reached;
+  const isLanded = reduceMotion || landed;
+
+  // The map is revealed outward from the hub once the ribbon lands there.
+  const reveal = useMotionValue(0);
+  useEffect(() => {
+    const controls = animate(reveal, isLanded ? 1 : 0, {
+      duration: reduceMotion ? 0 : isLanded ? 2.4 : 0.7,
+      ease: EASE_OUT,
+    });
+    return () => controls.stop();
+  }, [isLanded, reduceMotion, reveal]);
+
+  const maskImage = useTransform(reveal, (t) => {
+    const w = mapRef.current?.offsetWidth ?? 1400;
+    const r = t * w * 1.05;
+    return `radial-gradient(circle at ${MAP.hub.x}% ${MAP.hub.y}%, #000 ${r * 0.7}px, transparent ${r}px)`;
+  });
+
+  // The arcs draw outward from the hub while the map appears; the city points light up as they arrive.
+  const arcProgress = useTransform(reveal, [0.08, 0.85], [0, 1]);
+  const dotOpacity = useTransform(reveal, [0.5, 0.9], [0, 1]);
+  const hubOpacity = useTransform(reveal, [0, 0.12], [0, 1]);
+  const cometOpacity = useTransform(reveal, [0.85, 1], [0, 1]);
+
+  const draw = { fill: "none", stroke: "#fff", strokeWidth: 100, strokeLinejoin: "round" as const };
+  const px = (n: number) => n / mapScale;
 
   return (
     <section
-      id="how-we-are"
+      ref={sectionRef}
+      id="who-we-are"
       aria-labelledby="rkca-heading"
-      className="relative w-full overflow-hidden bg-ecovis-black pb-20 pt-28 text-ecovis-white md:pb-28 md:pt-40"
+      className="relative w-full overflow-hidden bg-white pt-24 text-ecovis-black md:pt-32"
     >
-      {/* Ambient background: faint grid that fades out, plus a crimson wash at the top */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0">
-        <div
-          className="absolute inset-0 opacity-[0.07]"
-          style={{
-            backgroundImage:
-              "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
-            backgroundSize: "4rem 4rem",
-            maskImage: "radial-gradient(ellipse 70% 60% at 50% 55%, #000, transparent 75%)",
-            WebkitMaskImage: "radial-gradient(ellipse 70% 60% at 50% 55%, #000, transparent 75%)",
-          }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 55% 35% at 50% 8%, rgba(225, 6, 0, 0.1), transparent 70%)",
-          }}
-        />
-      </div>
-
-      <div className="relative z-10 mx-auto max-w-[1920px] px-6 md:px-12">
+      <div className="relative z-10 mx-auto max-w-[1920px] px-4 sm:px-6 md:px-12">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.8, ease: EASE_OUT }}
-          className="mb-14 flex flex-col items-center text-center md:mb-20"
+          className="mb-8 flex flex-col items-center text-center md:mb-10"
         >
           <span className="mb-5 text-xs font-bold uppercase tracking-[0.25em] text-ecovis-red md:text-sm">
             Global Vision · Unified Values
@@ -154,239 +224,278 @@ export default function RKCAGlobalSection() {
             Ideas without <br />
             <span className="text-ecovis-red">borders.</span>
           </h2>
-          <p className="mt-6 max-w-xl font-sans text-base leading-relaxed text-gray-400 md:text-lg">
+          <p className="mt-6 max-w-xl font-sans text-base leading-relaxed text-gray-500 md:text-lg">
             A global network built on four core commitments.
           </p>
         </motion.div>
 
-        {/* Diagram */}
-        <div ref={diagramRef} className="relative mx-auto w-full max-w-6xl">
-          {/* Readout: every value is in the DOM, only the selected one is shown */}
-          <div className="mx-auto mb-10 max-w-3xl text-center md:mb-12">
-            <div id="rkca-readout" aria-live={autoplay ? "off" : "polite"} className="grid">
-              {rkcaValues.map((v, i) => {
-                const on = i === active;
-                return (
-                  <div
-                    key={v.letter}
-                    aria-hidden={!on}
-                    className={clsx(
-                      "col-start-1 row-start-1 flex flex-col items-center transition-all duration-700 ease-out",
-                      on ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0",
-                    )}
-                  >
-                    <span className="mb-4 flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.3em] text-ecovis-red md:text-xs">
-                      <span className="tabular-nums">0{i + 1}</span>
-                      <span className="h-px w-8 bg-ecovis-red/50" />
-                      <span>{v.title}</span>
-                    </span>
-                    <p className="font-heading text-xl font-medium leading-snug text-white/95 md:text-2xl">
-                      {v.desc}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
+        {/* Ribbon and nodes */}
+        <div
+          ref={stageRef}
+          style={STAGE_STYLE}
+          className="relative mx-auto w-full max-w-[1000px] [--k:0.5] sm:[--k:0.7] md:[--k:0.85] lg:[--k:1]"
+        >
+          <div
+            ref={trackRef}
+            data-rkca-track=""
+            aria-hidden="true"
+            className="pointer-events-none absolute left-0 top-0 w-px"
+            style={{ height: geo ? Math.max(1, geo.height - 24) : 1 }}
+          />
 
-            {!reduceMotion && (
-              <button
-                type="button"
-                onClick={() => setAutoplay((a) => !a)}
-                aria-label={autoplay ? "Pause automatic cycling" : "Resume automatic cycling"}
-                data-cursor={autoplay ? "PAUSE" : "PLAY"}
-                className="mt-6 inline-flex items-center gap-2 rounded-sm px-2 py-1 text-[10px] font-bold uppercase tracking-[0.25em] text-white/40 outline-none transition-colors hover:text-white focus-visible:text-white focus-visible:ring-2 focus-visible:ring-ecovis-red/70"
-              >
-                {autoplay ? (
-                  <Pause className="size-3 fill-current" aria-hidden="true" />
-                ) : (
-                  <Play className="size-3 fill-current" aria-hidden="true" />
-                )}
-                {autoplay ? "Pause" : "Play"}
-              </button>
-            )}
-          </div>
-
-          {/* R K C A nodes */}
-          <div role="group" aria-label="Core values" className="relative grid grid-cols-4">
-            {rkcaValues.map((v, i) => {
-              const isActive = i === active;
-              const ringRunning = isActive && running;
-              return (
-                <button
-                  key={v.letter}
-                  type="button"
-                  aria-pressed={isActive}
-                  aria-controls="rkca-readout"
-                  aria-label={v.title}
-                  onClick={() => select(i)}
-                  onPointerEnter={(e) => {
-                    if (e.pointerType === "mouse" && !isActive) select(i);
-                  }}
-                  data-cursor="VIEW"
-                  className="group relative flex flex-col items-center gap-3 rounded-md pb-1 outline-none focus-visible:ring-2 focus-visible:ring-ecovis-red/70 focus-visible:ring-offset-4 focus-visible:ring-offset-ecovis-black md:gap-4"
+          {geo && (
+            <svg
+              aria-hidden="true"
+              width={geo.viewW}
+              height={geo.height}
+              viewBox={`${geo.viewX} 0 ${geo.viewW} ${geo.height}`}
+              className="pointer-events-none absolute top-0 z-[5] overflow-visible"
+              style={{ left: geo.viewX, maskImage: RIBBON_FADE, WebkitMaskImage: RIBBON_FADE }}
+            >
+              <defs>
+                <linearGradient id={`${uid}-fill`} x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0" stopColor="#c50912" />
+                  <stop offset="0.5" stopColor="#ee0d12" />
+                  <stop offset="1" stopColor="#ff3d3a" />
+                </linearGradient>
+                <mask
+                  id={`${uid}-reveal`}
+                  maskUnits="userSpaceOnUse"
+                  x={geo.viewX - 60}
+                  y={-40}
+                  width={geo.viewW + 120}
+                  height={geo.height + 80}
                 >
-                  <span
-                    className={clsx(
-                      "relative grid size-14 place-items-center rounded-full border font-heading text-2xl font-bold transition-all duration-500 sm:size-16 md:size-[4.5rem] md:text-3xl",
-                      isActive
-                        ? "scale-105 border-ecovis-red bg-ecovis-red text-white shadow-[0_0_56px_rgba(225,6,0,0.5)]"
-                        : "border-white/15 bg-white/[0.04] text-white/75 group-hover:border-ecovis-red/60 group-hover:text-white",
-                    )}
+                  <motion.path d={geo.line} {...draw} style={{ pathLength: reduceMotion ? 1 : progress }} />
+                </mask>
+              </defs>
+
+              <g mask={`url(#${uid}-reveal)`}>
+                {/* Soft glow, made from two wide translucent strokes */}
+                <path d={geo.line} fill="none" stroke="#e10600" strokeOpacity={0.035} strokeWidth={22 * geo.scale} strokeLinejoin="round" />
+                <path d={geo.line} fill="none" stroke="#e10600" strokeOpacity={0.08} strokeWidth={9 * geo.scale} strokeLinejoin="round" />
+                <path d={geo.shape} fill={`url(#${uid}-fill)`} />
+              </g>
+            </svg>
+          )}
+
+          <ol
+            role="list"
+            className="relative z-10 m-0 list-none p-0"
+            style={{ paddingTop: "calc(var(--top) - var(--row) / 2)" }}
+          >
+            {values.map((v, i) => {
+              const on = shownReached > i;
+              const right = v.side === "right";
+              const dir = right ? 1 : -1;
+              const gap = "max(6px, calc(13px * var(--k)))";
+              const lineGradient = right
+                ? "linear-gradient(to right, rgba(225,6,0,0.75), rgba(225,6,0,0.22))"
+                : "linear-gradient(to left, rgba(225,6,0,0.75), rgba(225,6,0,0.22))";
+
+              return (
+                <li key={v.letter} className="relative" style={{ height: "var(--row)" }}>
+                  <div
+                    ref={(el) => {
+                      nodeRefs.current[i] = el;
+                    }}
+                    className="absolute"
+                    style={{
+                      top: "50%",
+                      left: `calc(50% + ${NODE_OFFSETS[i]}px * var(--kx))`,
+                      width: "var(--node)",
+                      height: "var(--node)",
+                      transform: "translate(-50%, -50%)",
+                    }}
                   >
-                    {/* Track ring, plus a progress ring that fills while autoplay counts down */}
-                    <svg
-                      viewBox="0 0 100 100"
-                      className="pointer-events-none absolute -inset-2 -rotate-90"
-                      aria-hidden="true"
+                    <motion.div
+                      className="absolute inset-0"
+                      initial={{ opacity: 0, scale: 0.5 }}
+                      animate={on ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.5 }}
+                      transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 240, damping: 18 }}
                     >
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="48"
-                        fill="none"
-                        stroke="rgba(225, 6, 0, 0.2)"
-                        strokeWidth="1"
-                      />
-                      <motion.circle
-                        key={isActive ? `on-${pulse}-${running}` : "off"}
-                        cx="50"
-                        cy="50"
-                        r="48"
-                        fill="none"
-                        stroke="#E10600"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        initial={{ pathLength: ringRunning ? 0 : isActive ? 1 : 0 }}
-                        animate={{ pathLength: isActive ? 1 : 0 }}
-                        transition={
-                          ringRunning
-                            ? { duration: AUTOPLAY_MS / 1000, ease: "linear" }
-                            : { duration: 0.5, ease: "easeOut" }
-                        }
-                      />
-                    </svg>
-                    {v.letter}
-                  </span>
+                      <div className="rkca-node grid h-full w-full place-items-center rounded-full">
+                        <span
+                          aria-hidden="true"
+                          className="font-heading font-bold leading-none text-ecovis-red"
+                          style={{ fontSize: "max(22px, calc(40px * var(--k)))" }}
+                        >
+                          {v.letter}
+                        </span>
+                      </div>
+                    </motion.div>
 
-                  <span
-                    className={clsx(
-                      "hidden font-heading text-[10px] font-bold uppercase tracking-[0.2em] transition-colors duration-500 sm:block md:text-xs",
-                      isActive ? "text-white" : "text-white/45 group-hover:text-white/80",
-                    )}
-                  >
-                    {v.title}
-                  </span>
-
-                  <span
-                    aria-hidden="true"
-                    className={clsx(
-                      "block h-px bg-ecovis-red transition-all duration-500",
-                      isActive ? "w-10" : "w-4 group-hover:w-7",
-                    )}
-                  />
-                </button>
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2"
+                      style={{ [right ? "left" : "right"]: `calc(100% + ${gap})` }}
+                    >
+                      <motion.div
+                        className={clsx("flex items-center", right ? "flex-row" : "flex-row-reverse")}
+                        initial={{ opacity: 0, x: dir * 14 }}
+                        animate={on ? { opacity: 1, x: 0 } : { opacity: 0, x: dir * 14 }}
+                        transition={reduceMotion ? { duration: 0 } : { duration: 0.6, delay: 0.12, ease: EASE_OUT }}
+                      >
+                        <span aria-hidden="true" className="block size-[5px] shrink-0 rounded-full bg-ecovis-red" />
+                        <span
+                          aria-hidden="true"
+                          className="block h-px shrink-0"
+                          style={{
+                            width: "max(16px, calc(52px * var(--k)))",
+                            background: lineGradient,
+                          }}
+                        />
+                        <span
+                          className="whitespace-nowrap font-sans font-medium text-ecovis-black"
+                          style={{
+                            [right ? "marginLeft" : "marginRight"]: gap,
+                            fontSize: "max(12px, calc(21px * var(--k)))",
+                            letterSpacing: "max(0.04em, calc(0.1em * var(--k)))",
+                          }}
+                        >
+                          {v.title}
+                        </span>
+                      </motion.div>
+                    </div>
+                  </div>
+                </li>
               );
             })}
-          </div>
+          </ol>
+        </div>
+      </div>
 
-          {/* Lines converging on the hub */}
-          <div className="relative h-[110px] w-full sm:h-[160px] md:h-[210px]">
+      {/* World map, edge to edge. It is revealed outward from the hub once the ribbon lands there. */}
+      <div
+        className="relative w-full overflow-hidden"
+        style={{ marginTop: `calc(-1 * ${MAP_OVERLAP})`, marginBottom: `calc(-1 * ${MAP_TRIM})` }}
+      >
+        <div
+          ref={mapRef}
+          className="relative"
+          style={{ width: MAP_WIDTH, left: MAP_LEFT, aspectRatio: `${MAP.width} / ${MAP.height}` }}
+        >
+          <span
+            ref={endRef}
+            aria-hidden="true"
+            className="absolute size-0"
+            style={{ left: `${MAP.hub.x}%`, top: `${MAP.hub.y}%` }}
+          />
+
+          {/* The map itself: grey land on a white sea, multiplied onto the page */}
+          <motion.div
+            className="absolute inset-0"
+            style={{ maskImage, WebkitMaskImage: maskImage, mixBlendMode: "multiply" }}
+          >
+            <Image
+              src="/images/rkca-map.webp"
+              alt="A grey world map with red lines running from India to cities across the world."
+              width={MAP.width}
+              height={MAP.height}
+              unoptimized
+              loading="eager"
+              draggable={false}
+              className="h-full w-full select-none"
+            />
+          </motion.div>
+
+          {/* Arcs, city points and the hub, drawn in red on top of the map */}
+          <motion.div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            style={{ maskImage, WebkitMaskImage: maskImage }}
+          >
             <svg
-              viewBox={`0 0 ${VB_W} ${VB_H}`}
+              viewBox={`0 0 ${MAP.width} ${MAP.height}`}
               preserveAspectRatio="none"
               fill="none"
               className="absolute inset-0 h-full w-full overflow-visible"
-              aria-hidden="true"
             >
-              {connectorPaths.map((d, i) => {
-                const isActive = i === active;
-                return (
-                  <g key={d}>
-                    <motion.path
+              {Object.entries(MAP_ARCS).map(([name, d], n) => (
+                <g key={name}>
+                  <motion.path d={d} stroke="#e10600" strokeOpacity={0.16} strokeWidth={px(7)} strokeLinecap="round" style={{ pathLength: arcProgress }} />
+                  <motion.path d={d} stroke="#f0281c" strokeWidth={px(1.8)} strokeLinecap="round" style={{ pathLength: arcProgress }} />
+                  <motion.g style={{ opacity: cometOpacity }}>
+                    <path
                       d={d}
-                      stroke="rgba(255, 255, 255, 0.16)"
-                      className={LINE_WIDTH}
-                      initial={false}
-                      animate={{ pathLength: revealed ? 1 : 0 }}
-                      transition={drawIn(i)}
+                      pathLength={1}
+                      stroke="#ff6a5c"
+                      strokeWidth={px(3)}
+                      strokeLinecap="round"
+                      className="rkca-arc-comet"
+                      style={{ animationDelay: `${(n * 0.75).toFixed(2)}s` }}
                     />
-                    <motion.path
-                      d={d}
-                      stroke="#E10600"
-                      className={LINE_WIDTH}
-                      style={{ filter: GLOW }}
-                      initial={false}
-                      animate={{ pathLength: revealed ? 1 : 0, opacity: isActive ? 1 : 0 }}
-                      transition={{ pathLength: drawIn(i), opacity: { duration: 0.45 } }}
-                    />
-                    {isActive && revealed && !reduceMotion && (
-                      <path
-                        key={`comet-${i}-${pulse}`}
-                        d={d}
-                        pathLength={1}
-                        stroke="#FFFFFF"
-                        strokeLinecap="round"
-                        className={clsx(LINE_WIDTH, "rkca-comet")}
-                        style={{ filter: GLOW }}
-                      />
-                    )}
-                  </g>
-                );
-              })}
+                  </motion.g>
+                </g>
+              ))}
             </svg>
 
-            {/* Hub */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute bottom-0 left-1/2 z-10 size-3.5 -translate-x-1/2 translate-y-1/2"
-            >
-              <span className="absolute left-1/2 top-1/2 size-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-ecovis-red/40 [animation-duration:3s] motion-safe:animate-ping" />
-              <span className="absolute left-1/2 top-1/2 size-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ecovis-red/15" />
-              <span className="relative block size-3.5 rounded-full bg-ecovis-red shadow-[0_0_28px_8px_rgba(225,6,0,0.55)]" />
-            </div>
-          </div>
-
-          {/* Line from the hub down to the globe */}
-          <div
-            aria-hidden="true"
-            className="relative mx-auto h-12 w-px bg-gradient-to-b from-ecovis-red to-ecovis-red/40 sm:h-16 md:h-20"
-          >
-            {revealed && !reduceMotion && (
+            {/* Ripples spreading from the hub */}
+            {[0, 1, 2].map((n) => (
               <span
-                key={`drop-${pulse}`}
-                className="rkca-drop absolute left-1/2 h-6 w-[3px] -translate-x-1/2 rounded-full bg-gradient-to-b from-transparent via-white/70 to-white"
-              />
-            )}
-            <span className="absolute -bottom-[3px] left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-ecovis-red shadow-[0_0_12px_3px_rgba(225,6,0,0.7)]" />
-          </div>
-
-          {/* Globe */}
-          <div className="relative mx-auto w-full max-w-[820px]">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute left-1/2 top-0 aspect-square w-[132%] -translate-x-1/2 -translate-y-[12%] rounded-full"
-              style={{
-                background:
-                  "radial-gradient(closest-side, rgba(225,6,0,0) 0%, rgba(225,6,0,0) 68%, rgba(225,6,0,0.2) 76%, rgba(225,6,0,0.06) 88%, rgba(225,6,0,0) 100%)",
-              }}
-            />
-            {revealed && !reduceMotion && (
-              <div
-                key={`flash-${pulse}`}
-                aria-hidden="true"
-                className="rkca-flash pointer-events-none absolute left-1/2 top-0 h-28 w-72 rounded-full"
+                key={n}
+                className="rkca-ripple pointer-events-none absolute rounded-[50%] border border-ecovis-red/50"
                 style={{
-                  background:
-                    "radial-gradient(closest-side, rgba(255,110,100,0.55), rgba(225,6,0,0.18) 55%, transparent 100%)",
+                  left: `${MAP.hub.x}%`,
+                  top: `${MAP.hub.y}%`,
+                  width: "44%",
+                  aspectRatio: "2 / 1",
+                  animationDelay: `${n * 1.2}s`,
                 }}
               />
-            )}
-            {/* The lower part of the sphere fades into the section background */}
-            <DottedGlobe
-              pulseKey={pulse}
-              className="aspect-[100/60] [-webkit-mask-image:linear-gradient(to_bottom,#000_0%,#000_55%,transparent_100%)] [mask-image:linear-gradient(to_bottom,#000_0%,#000_55%,transparent_100%)]"
-            />
-          </div>
+            ))}
+
+            {/* The hub: a small warm glow and a white-hot point */}
+            <motion.span
+              className="absolute"
+              style={{ left: `${MAP.hub.x}%`, top: `${MAP.hub.y}%`, opacity: hubOpacity }}
+            >
+              <span
+                className="rkca-glow absolute left-0 top-0 rounded-full"
+                style={{
+                  width: "clamp(70px, 6.5vw, 170px)",
+                  aspectRatio: "1",
+                  background:
+                    "radial-gradient(closest-side, rgba(255,70,60,0.4), rgba(225,6,0,0.12) 55%, transparent 100%)",
+                }}
+              />
+              <span
+                className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                style={{
+                  width: "clamp(10px, 0.8vw, 16px)",
+                  aspectRatio: "1",
+                  background: "radial-gradient(circle, #fff 0 32%, #ff3327 42% 100%)",
+                  boxShadow: "0 0 0 2px rgba(255,255,255,0.9), 0 0 16px 5px rgba(225,6,0,0.55)",
+                }}
+              />
+            </motion.span>
+
+            {/* City points */}
+            {MAP.dots.map((d, n) => (
+              <motion.span
+                key={n}
+                className="absolute"
+                style={{ left: `${d.x}%`, top: `${d.y}%`, opacity: dotOpacity }}
+              >
+                <span
+                  className="rkca-dot-ping absolute left-0 top-0 rounded-full border border-ecovis-red/70"
+                  style={{
+                    width: "clamp(11px, 0.95vw, 20px)",
+                    aspectRatio: "1",
+                    animationDelay: `${(n * 0.55).toFixed(2)}s`,
+                  }}
+                />
+                <span
+                  className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                  style={{
+                    width: "clamp(6px, 0.5vw, 10px)",
+                    aspectRatio: "1",
+                    background: "#f0281c",
+                    boxShadow: "0 0 0 1.5px rgba(255,255,255,0.95), 0 0 12px 3px rgba(225,6,0,0.5)",
+                  }}
+                />
+              </motion.span>
+            ))}
+          </motion.div>
         </div>
       </div>
     </section>

@@ -7,6 +7,7 @@ import TechnologySection from "@/components/home/TechnologySection";
 import ComplianceSection from "@/components/home/ComplianceSection";
 import LegalSection from "@/components/home/LegalSection";
 import FourPillarTransition from "@/components/home/FourPillarTransition";
+import OurBoardSection from "@/components/home/OurBoardSection";
 import StatsSection from "@/components/home/StatsSection";
 import BrandStatementSection from "@/components/home/BrandStatementSection";
 import Footer from "@/components/layout/Footer";
@@ -23,6 +24,7 @@ export default function Home() {
       <ComplianceSection />
       <LegalSection />
       <FourPillarTransition />
+      <OurBoardSection />
       <StatsSection />
       <BrandStatementSection />
       <Footer />

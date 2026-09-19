@@ -69,46 +69,87 @@ h1, h2, h3, h4, h5, h6, .font-heading {
 }
 
 
+
+
 /* ---------------------------------------------------------------------------
-   RKCA diagram: one signal loops every 2.4s while a value is selected.
-   comet (along the line) -> drop (down to the globe) -> flash (on the rim).
-   The delays line each step up with the end of the previous one.
+   RKCA values diagram
 --------------------------------------------------------------------------- */
-@keyframes rkca-comet {
-  from { stroke-dashoffset: 0.16; }
-  to { stroke-dashoffset: -1; }
+
+/* Glass disc that carries each letter */
+.rkca-node {
+  background: radial-gradient(120% 120% at 32% 26%, #ffffff 0%, #fff6f6 45%, #fde4e2 100%);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.95),
+    inset 0 -6px 14px rgba(225, 6, 0, 0.1),
+    0 0 0 5px rgba(255, 255, 255, 0.6),
+    0 0 0 6px rgba(225, 6, 0, 0.08),
+    0 10px 36px rgba(225, 6, 0, 0.28),
+    0 0 20px rgba(225, 6, 0, 0.16);
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.5s ease;
 }
 
-@keyframes rkca-drop {
-  0% { top: -1.5rem; opacity: 0; }
-  3% { opacity: 1; }
-  20% { top: 100%; opacity: 1; }
-  23%, 100% { top: 100%; opacity: 0; }
+.rkca-node:hover {
+  transform: scale(1.08);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.95),
+    inset 0 -6px 14px rgba(225, 6, 0, 0.14),
+    0 0 0 5px rgba(255, 255, 255, 0.7),
+    0 0 0 6px rgba(225, 6, 0, 0.14),
+    0 14px 48px rgba(225, 6, 0, 0.4),
+    0 0 30px rgba(225, 6, 0, 0.26);
 }
 
-@keyframes rkca-flash {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
-  8% { opacity: 0.85; }
-  45%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+/* Effects on the globe once the ribbon has landed */
+@keyframes rkca-ripple {
+  0% { transform: translate(-50%, -50%) scale(0.08); opacity: 0.55; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
 }
 
-.rkca-comet {
-  stroke-dasharray: 0.16 1.4;
-  animation: rkca-comet 2.4s linear infinite;
+@keyframes rkca-dot-ping {
+  0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.8; }
+  70%, 100% { transform: translate(-50%, -50%) scale(3.2); opacity: 0; }
 }
 
-.rkca-drop {
-  animation: rkca-drop 2.4s linear 2.1s infinite backwards;
+@keyframes rkca-glow {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+  50% { transform: translate(-50%, -50%) scale(1.12); opacity: 1; }
 }
 
-.rkca-flash {
+.rkca-ripple {
+  transform: translate(-50%, -50%) scale(0.08);
   opacity: 0;
-  animation: rkca-flash 2.4s ease-out 2.5s infinite backwards;
+  animation: rkca-ripple 3.6s ease-out infinite;
+}
+
+.rkca-dot-ping {
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  animation: rkca-dot-ping 2.6s ease-out infinite;
+}
+
+.rkca-glow {
+  transform: translate(-50%, -50%);
+  animation: rkca-glow 3.2s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rkca-comet, .rkca-drop, .rkca-flash {
-    animation: none;
-    display: none;
-  }
+  .rkca-ripple, .rkca-dot-ping { display: none; }
+  .rkca-glow { animation: none; opacity: 0.8; }
+  .rkca-node { transition: none; }
+}
+
+/* A short bright dash that travels along each arc once it is drawn */
+@keyframes rkca-arc-comet {
+  from { stroke-dashoffset: 0.05; }
+  to { stroke-dashoffset: -1; }
+}
+
+.rkca-arc-comet {
+  stroke-dasharray: 0.05 1.4;
+  filter: drop-shadow(0 0 3px rgba(225, 6, 0, 0.9));
+  animation: rkca-arc-comet 3.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rkca-arc-comet { display: none; }
 }
