@@ -12,7 +12,7 @@ import {
   useSpring,
   useTransform,
 } from "framer-motion";
-import { NODE_OFFSETS, buildRibbon, type RibbonGeometry } from "./rkcaRibbon";
+import { buildRibbon, type RibbonGeometry } from "./rkcaRibbon";
 import { MAP_ARCS } from "./mapArcs";
 
 const values = [
@@ -55,20 +55,35 @@ const MAP_OVERLAP = "clamp(48px, 7vw, 150px)";
 /** The artwork has empty space under the map. Pull the next section up into it. */
 const MAP_TRIM = "clamp(20px, 4vw, 90px)";
 
-/** The ribbon's waves swing this much wider than the artwork's, so it curves more and runs shorter. */
-const KX = 1.45;
-
 /**
  * Layout scale (--k) and the sizes derived from it. Everything is CSS, so the
  * server and browser agree on first paint. The ribbon is then fitted to the
- * measured positions of the nodes and of the hub.
+ * measured positions of the nodes and of the hub. How far the nodes swing out
+ * to the sides (--amp) is set in globals.css.
  */
 const STAGE_STYLE = {
-  "--kx": `calc(var(--k) * ${KX})`,
-  "--row": "max(118px, calc(170px * var(--k)))",
-  "--top": "max(90px, calc(130px * var(--k)))",
+  "--row": "max(104px, calc(132px * var(--k)))",
+  "--top": "max(84px, calc(112px * var(--k)))",
   "--node": "max(44px, calc(84px * var(--k)))",
+  "--gap": "max(6px, calc(13px * var(--k)))",
 } as React.CSSProperties;
+
+/**
+ * On wide screens each label sits outside its node, towards the edge of the screen. Below that
+ * there is no room out there, so it tucks in on the side that faces the middle.
+ */
+const LABEL = {
+  right: {
+    box: "right-[calc(100%_+_var(--gap))] min-[1000px]:right-auto min-[1000px]:left-[calc(100%_+_var(--gap))]",
+    row: "flex-row-reverse min-[1000px]:flex-row",
+    line: "-scale-x-100 min-[1000px]:scale-x-100",
+  },
+  left: {
+    box: "left-[calc(100%_+_var(--gap))] min-[1000px]:left-auto min-[1000px]:right-[calc(100%_+_var(--gap))]",
+    row: "flex-row min-[1000px]:flex-row-reverse",
+    line: "min-[1000px]:-scale-x-100",
+  },
+} as const;
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
@@ -118,10 +133,18 @@ export default function RKCAGlobalSection() {
   const smooth = useSpring(scrollYProgress, { stiffness: 140, damping: 26, mass: 0.35 });
   const progress = useTransform(smooth, (v) => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0));
 
-  const sync = useCallback((p: number, g: RibbonGeometry) => {
-    setReached(g.fractions.filter((f) => p >= f - 0.012).length);
-    setLanded(p >= 0.985);
-  }, []);
+  // How much of the ribbon's length is drawn. It follows how far down the page the reader has got,
+  // so the tip keeps pace with the scroll even while it sweeps sideways.
+  const drawn = useMotionValue(0);
+
+  const sync = useCallback(
+    (p: number, g: RibbonGeometry) => {
+      drawn.set(g.lengthAt(p));
+      setReached(g.fractions.filter((f) => p >= f - 0.012).length);
+      setLanded(p >= 0.985);
+    },
+    [drawn],
+  );
 
   useMotionValueEvent(progress, "change", (p) => {
     if (geo) sync(p, geo);
@@ -153,7 +176,6 @@ export default function RKCAGlobalSection() {
         viewX: secRect.left - sr.left,
         viewW: secRect.width,
         k,
-        kx: k * KX,
         nodes,
         end: { x: er.left - sr.left, y: er.top - sr.top },
       });
@@ -195,7 +217,6 @@ export default function RKCAGlobalSection() {
   const hubOpacity = useTransform(reveal, [0, 0.12], [0, 1]);
   const cometOpacity = useTransform(reveal, [0.85, 1], [0, 1]);
 
-  const draw = { fill: "none", stroke: "#fff", strokeWidth: 100, strokeLinejoin: "round" as const };
   const px = (n: number) => n / mapScale;
 
   return (
@@ -233,7 +254,7 @@ export default function RKCAGlobalSection() {
         <div
           ref={stageRef}
           style={STAGE_STYLE}
-          className="relative mx-auto w-full max-w-[1000px] [--k:0.5] sm:[--k:0.7] md:[--k:0.85] lg:[--k:1]"
+          className="rkca-stage relative mx-auto w-full max-w-[1600px] [--k:0.5] sm:[--k:0.7] md:[--k:0.85] min-[1200px]:[--k:1]"
         >
           <div
             ref={trackRef}
@@ -266,7 +287,7 @@ export default function RKCAGlobalSection() {
                   width={geo.viewW + 120}
                   height={geo.height + 80}
                 >
-                  <motion.path d={geo.line} {...draw} style={{ pathLength: reduceMotion ? 1 : progress }} />
+                  <motion.path d={geo.line} fill="none" stroke="#fff" strokeWidth={34 * geo.scale} strokeLinejoin="round" style={{ pathLength: reduceMotion ? 1 : drawn }} />
                 </mask>
               </defs>
 
@@ -286,12 +307,8 @@ export default function RKCAGlobalSection() {
           >
             {values.map((v, i) => {
               const on = shownReached > i;
-              const right = v.side === "right";
-              const dir = right ? 1 : -1;
-              const gap = "max(6px, calc(13px * var(--k)))";
-              const lineGradient = right
-                ? "linear-gradient(to right, rgba(225,6,0,0.75), rgba(225,6,0,0.22))"
-                : "linear-gradient(to left, rgba(225,6,0,0.75), rgba(225,6,0,0.22))";
+              const dir = v.side === "right" ? 1 : -1;
+              const label = LABEL[v.side];
 
               return (
                 <li key={v.letter} className="relative" style={{ height: "var(--row)" }}>
@@ -302,7 +319,7 @@ export default function RKCAGlobalSection() {
                     className="absolute"
                     style={{
                       top: "50%",
-                      left: `calc(50% + ${NODE_OFFSETS[i]}px * var(--kx))`,
+                      left: `calc(50% + ${dir} * var(--amp))`,
                       width: "var(--node)",
                       height: "var(--node)",
                       transform: "translate(-50%, -50%)",
@@ -325,12 +342,9 @@ export default function RKCAGlobalSection() {
                       </div>
                     </motion.div>
 
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2"
-                      style={{ [right ? "left" : "right"]: `calc(100% + ${gap})` }}
-                    >
+                    <div className={clsx("absolute top-1/2 -translate-y-1/2", label.box)}>
                       <motion.div
-                        className={clsx("flex items-center", right ? "flex-row" : "flex-row-reverse")}
+                        className={clsx("flex items-center", label.row)}
                         initial={{ opacity: 0, x: dir * 14 }}
                         animate={on ? { opacity: 1, x: 0 } : { opacity: 0, x: dir * 14 }}
                         transition={reduceMotion ? { duration: 0 } : { duration: 0.6, delay: 0.12, ease: EASE_OUT }}
@@ -338,16 +352,16 @@ export default function RKCAGlobalSection() {
                         <span aria-hidden="true" className="block size-[5px] shrink-0 rounded-full bg-ecovis-red" />
                         <span
                           aria-hidden="true"
-                          className="block h-px shrink-0"
+                          className={clsx("block h-px shrink-0", label.line)}
                           style={{
                             width: "max(16px, calc(52px * var(--k)))",
-                            background: lineGradient,
+                            background: "linear-gradient(to right, rgba(225,6,0,0.75), rgba(225,6,0,0.22))",
                           }}
                         />
+                        <span aria-hidden="true" className="block shrink-0" style={{ width: "var(--gap)" }} />
                         <span
                           className="whitespace-nowrap font-sans font-medium text-ecovis-black"
                           style={{
-                            [right ? "marginLeft" : "marginRight"]: gap,
                             fontSize: "max(12px, calc(21px * var(--k)))",
                             letterSpacing: "max(0.04em, calc(0.1em * var(--k)))",
                           }}

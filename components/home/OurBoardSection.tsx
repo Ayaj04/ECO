@@ -14,12 +14,12 @@ interface Person {
 interface Stage {
   key: string;
   label: string;
-  /** Aspect ratio of the portraits in this group, as in the artwork. */
-  aspect: string;
-  /** Width of each card. Phones and small screens get a swipeable row, wide screens a centred one. */
-  cardWidth: string;
+  /** Width of each photo before the screen height limits it. Phones and small screens get a swipeable row. */
+  photoClass: string;
   /** The row scrolls sideways below this breakpoint and is centred above it. */
   rowClass: string;
+  /** Smaller type, for the group with the most cards, so names and roles stay on one line. */
+  dense?: boolean;
   people: Person[];
 }
 
@@ -27,45 +27,50 @@ const STAGES: Stage[] = [
   {
     key: "founders",
     label: "Founders",
-    aspect: "292 / 282",
-    cardWidth: "w-[min(72vw,260px)] md:w-[clamp(250px,24vw,355px)]",
+    photoClass: "[--pw-base:min(62vw,240px)] md:[--pw-base:clamp(200px,21vw,300px)]",
     rowClass: "md:justify-center md:overflow-visible md:px-0",
     people: [
-      { name: "Arjun Mehta", role: "Co-Founder", photo: "/images/board/arjun-mehta.webp" },
-      { name: "Naina Kapoor", role: "Co-Founder", photo: "/images/board/naina-kapoor.webp" },
+      { name: "Lt. R.L. Kabra", role: "Co-Founder", photo: "/images/board/rl-kabra.webp" },
+      { name: "R.S. Kela", role: "Co-Founder", photo: "/images/board/rs-kela.webp" },
     ],
   },
   {
-    key: "members",
-    label: "Members",
-    aspect: "313 / 281",
-    cardWidth: "w-[min(72vw,260px)] md:w-[clamp(210px,25vw,375px)]",
+    key: "mentors",
+    label: "Mentors",
+    photoClass: "[--pw-base:min(62vw,240px)] md:[--pw-base:clamp(180px,19vw,270px)]",
     rowClass: "md:justify-center md:overflow-visible md:px-0",
     people: [
-      { name: "Rohan Desai", role: "Board Member", photo: "/images/board/rohan-desai.webp" },
-      { name: "Priya Sharma", role: "Board Member", photo: "/images/board/priya-sharma.webp" },
-      { name: "Karan Malhotra", role: "Board Member", photo: "/images/board/karan-malhotra.webp" },
+      { name: "Rohan Desai", role: "Mentor", photo: "/images/board/rohan-desai.webp" },
+      { name: "Priya Sharma", role: "Mentor", photo: "/images/board/priya-sharma.webp" },
+      { name: "Karan Malhotra", role: "Mentor", photo: "/images/board/karan-malhotra.webp" },
     ],
   },
   {
     key: "leaders",
     label: "Leaders",
-    aspect: "222 / 233",
-    cardWidth: "w-[min(64vw,230px)] xl:w-[clamp(200px,16vw,270px)]",
+    photoClass: "[--pw-base:min(54vw,190px)] xl:[--pw-base:clamp(150px,13vw,230px)]",
     rowClass: "xl:justify-center xl:overflow-visible xl:px-0",
+    dense: true,
     people: [
-      { name: "Vikram Iyer", role: "Team Lead", photo: "/images/board/vikram-iyer.webp" },
-      { name: "Ananya Rao", role: "Team Lead", photo: "/images/board/ananya-rao.webp" },
-      { name: "Siddharth Jain", role: "Team Lead", photo: "/images/board/siddharth-jain.webp" },
-      { name: "Meera Nair", role: "Team Lead", photo: "/images/board/meera-nair.webp" },
-      { name: "Aditya Kulkarni", role: "Team Lead", photo: "/images/board/aditya-kulkarni.webp" },
+      { name: "Dheeraj Rathi", role: "Technical", photo: "/images/board/dheeraj-rathi.webp" },
+      { name: "Deepa Rathi", role: "Compliance & Governance", photo: "/images/board/deepa-rathi.webp" },
+      { name: "Bala Subramanian", role: "Finance", photo: "/images/board/bala-subramanian.webp" },
+      { name: "Sanjeev Bindal", role: "Legal", photo: "/images/board/sanjeev-bindal.webp" },
+      { name: "Pankaj Bhargava", role: "Strategic & Performance", photo: "/images/board/pankaj-bhargava.webp" },
     ],
   },
 ];
 
+/** Every portrait has this shape, so the photo box matches it and no face is cropped. */
+const PHOTO_RATIO = 215 / 247;
+/** A photo may be at most this tall, as a share of the screen height, so every group fits a short window. */
+const PHOTO_MAX_SVH = 32;
+/** The same limit as a width: the tallest photo the screen allows, times the shape above. */
+const PHOTO_MAX_WIDTH = `${(PHOTO_MAX_SVH * PHOTO_RATIO).toFixed(2)}svh`;
+
 /** Total height of the section, in screens. The page scrolls through it while the stage stays in view. */
 const SECTION_SCREENS = 2.8;
-/** How far through the section (0 to 1) each change happens: founders to members, then members to leaders. */
+/** How far through the section (0 to 1) each change happens: founders to mentors, then mentors to leaders. */
 const BREAKS = [0.34, 0.67] as const;
 
 const stageFor = (p: number) => (p < BREAKS[0] ? 0 : p < BREAKS[1] ? 1 : 2);
@@ -108,34 +113,52 @@ function Swoosh({ className }: { className?: string }) {
   );
 }
 
-function PersonCard({ person, aspect, widthClass }: { person: Person; aspect: string; widthClass: string }) {
+function PersonCard({ person, dense = false }: { person: Person; dense?: boolean }) {
   return (
     <motion.article
       variants={cardVariants}
-      className={clsx(
-        "group shrink-0 snap-center rounded-2xl border border-black/[0.05] bg-white p-4 text-center shadow-[0_14px_44px_-16px_rgba(0,0,0,0.1)] transition-[translate,box-shadow] duration-500 hover:-translate-y-1.5 hover:shadow-[0_26px_60px_-18px_rgba(0,0,0,0.18)] md:p-5",
-        widthClass,
-      )}
+      // --pw is the photo width: the group's own size, or less if the screen is short. The card hugs the photo.
+      style={
+        {
+          "--pw": `min(var(--pw-base), ${PHOTO_MAX_WIDTH})`,
+          width: "calc(var(--pw) + var(--pad) * 2)",
+        } as React.CSSProperties
+      }
+      className="group shrink-0 snap-center rounded-2xl border border-black/[0.05] bg-white p-[var(--pad)] text-center shadow-[0_14px_44px_-16px_rgba(0,0,0,0.1)] transition-[translate,box-shadow] duration-500 [--pad:16px] hover:-translate-y-1.5 hover:shadow-[0_26px_60px_-18px_rgba(0,0,0,0.18)] md:[--pad:20px]"
     >
       <div
-        className="relative w-full overflow-hidden rounded-xl bg-[#e9e9e9]"
-        style={{ aspectRatio: aspect, maxHeight: "32svh" }}
+        className="relative mx-auto w-[var(--pw)] overflow-hidden rounded-xl bg-[#e9e9e9]"
+        style={{ aspectRatio: PHOTO_RATIO }}
       >
+        {/* Small files, and phone rows scroll sideways, so lazy loading would leave empty boxes when swiping. */}
         <Image
           src={person.photo}
           alt={`Portrait of ${person.name}`}
           fill
           sizes="(min-width: 1280px) 300px, 72vw"
           unoptimized
+          loading="eager"
           draggable={false}
           className="select-none object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.04]"
         />
       </div>
 
-      <h3 className="mt-4 font-heading text-[17px] font-semibold tracking-tight text-ecovis-black md:mt-5 md:text-[22px]">
+      <h3
+        className={clsx(
+          "mt-4 font-heading font-semibold tracking-tight text-ecovis-black md:mt-5",
+          dense ? "text-[17px] md:text-[20px] xl:text-[clamp(15px,1.4vw,22px)]" : "text-[17px] md:text-[22px]",
+        )}
+      >
         {person.name}
       </h3>
-      <p className="mt-1 font-sans text-sm text-gray-500 md:text-[15px]">{person.role}</p>
+      <p
+        className={clsx(
+          "mt-1 font-sans text-gray-500",
+          dense ? "text-[13px] xl:text-[clamp(11.5px,0.95vw,14px)]" : "text-sm md:text-[15px]",
+        )}
+      >
+        {person.role}
+      </p>
 
       {/* No profile addresses were supplied, so these do nothing yet. */}
       <a
@@ -219,11 +242,12 @@ export default function OurBoardSection() {
                   <div
                     className={clsx(
                       "mt-[clamp(20px,4svh,44px)] flex w-full snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-6 pt-3 [scrollbar-width:none] md:gap-6 [&::-webkit-scrollbar]:hidden",
+                      s.photoClass,
                       s.rowClass,
                     )}
                   >
                     {s.people.map((person) => (
-                      <PersonCard key={person.name} person={person} aspect={s.aspect} widthClass={s.cardWidth} />
+                      <PersonCard key={person.name} person={person} dense={s.dense} />
                     ))}
                   </div>
                 </motion.div>

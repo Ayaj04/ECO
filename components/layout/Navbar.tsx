@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
 import clsx from "clsx";
+import CallButton from "./CallButton";
+import ContactDialog from "./ContactDialog";
 
 interface MenuItem {
   label: string;
@@ -228,6 +230,7 @@ export default function Navbar() {
   const [activeTab, setActiveTab] = useState<string>("");
   const [isScrolled, setIsScrolled] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [contactOpen, setContactOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -277,10 +280,10 @@ export default function Navbar() {
   return (
     // reducedMotion="user" drops the slide and scale animations for visitors who ask for less motion
     <MotionConfig reducedMotion="user">
-      <header className="fixed top-6 md:top-8 right-3 min-[400px]:right-6 md:right-10 z-40">
+      <header className="fixed top-6 md:top-8 right-3 min-[400px]:right-6 md:right-10 z-40 flex flex-col items-end gap-3">
         <nav
           aria-label="Quick navigation"
-          className={`flex items-center gap-0.5 min-[400px]:gap-1 md:gap-2 px-1.5 py-1.5 min-[400px]:px-2 md:px-3 md:py-2 rounded-full border transition-all duration-500 backdrop-blur-xl ${
+          className={`relative z-20 flex items-center gap-0.5 min-[400px]:gap-1 md:gap-2 px-1.5 py-1.5 min-[400px]:px-2 md:px-3 md:py-2 rounded-full border transition-all duration-500 backdrop-blur-xl ${
             isScrolled
               ? "bg-ecovis-black/90 border-white/20 shadow-2xl shadow-black/40"
               : "bg-ecovis-black/80 border-black/10 shadow-lg shadow-black/20"
@@ -338,7 +341,11 @@ export default function Navbar() {
             );
           })}
         </nav>
+
+        <CallButton dimmed={openMenu !== null} onOpen={() => setContactOpen(true)} />
       </header>
+
+      <ContactDialog open={contactOpen} onClose={() => setContactOpen(false)} />
     </MotionConfig>
   );
 }

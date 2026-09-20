@@ -103,32 +103,9 @@ export default function Hero() {
             >
               Explore Our Expertise &rarr;
             </button>
-            <button 
-              className="text-ecovis-black font-semibold text-sm tracking-widest uppercase hover:text-ecovis-red transition-colors duration-300"
-              data-cursor="CONTACT"
-            >
-              Contact Us
-            </button>
           </motion.div>
         </motion.div>
       </div>
-
-      {/* Scroll Indicator positioned safely on the right */}
-      <motion.div 
-        className="hidden md:flex absolute bottom-10 right-8 md:right-16 flex-col items-center gap-2 pointer-events-none"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 2, duration: 1 }}
-      >
-        <span className="text-[10px] tracking-widest font-bold text-ecovis-black rotate-90 mb-8 uppercase">
-          Scroll to explore
-        </span>
-        <motion.div 
-          animate={{ y: [0, 10, 0] }}
-          transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-          className="w-[1px] h-12 bg-ecovis-black"
-        />
-      </motion.div>
     </section>
   );
 }
