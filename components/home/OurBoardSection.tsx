@@ -18,7 +18,7 @@ interface Stage {
   photoClass: string;
   /** The row scrolls sideways below this breakpoint and is centred above it. */
   rowClass: string;
-  /** Smaller type, for the group with the most cards, so names and roles stay on one line. */
+  /** Type sized to the photo width, for the group with the longest names, so they stay on one line. */
   dense?: boolean;
   people: Person[];
 }
@@ -54,7 +54,7 @@ const STAGES: Stage[] = [
     people: [
       { name: "Dheeraj Rathi", role: "Technical", photo: "/images/board/dheeraj-rathi.webp" },
       { name: "Deepa Rathi", role: "Compliance & Governance", photo: "/images/board/deepa-rathi.webp" },
-      { name: "Bala Subramanian", role: "Finance", photo: "/images/board/bala-subramanian.webp" },
+      { name: "D. Balasubramaniam", role: "Finance", photo: "/images/board/d-balasubramaniam.webp" },
       { name: "Sanjeev Bindal", role: "Legal", photo: "/images/board/sanjeev-bindal.webp" },
       { name: "Pankaj Bhargava", role: "Strategic & Performance", photo: "/images/board/pankaj-bhargava.webp" },
     ],
@@ -146,7 +146,7 @@ function PersonCard({ person, dense = false }: { person: Person; dense?: boolean
       <h3
         className={clsx(
           "mt-4 font-heading font-semibold tracking-tight text-ecovis-black md:mt-5",
-          dense ? "text-[17px] md:text-[20px] xl:text-[clamp(15px,1.4vw,22px)]" : "text-[17px] md:text-[22px]",
+          dense ? "text-[clamp(15px,calc(var(--pw)/10.2),22px)]" : "text-[17px] md:text-[22px]",
         )}
       >
         {person.name}
@@ -154,7 +154,7 @@ function PersonCard({ person, dense = false }: { person: Person; dense?: boolean
       <p
         className={clsx(
           "mt-1 font-sans text-gray-500",
-          dense ? "text-[13px] xl:text-[clamp(11.5px,0.95vw,14px)]" : "text-sm md:text-[15px]",
+          dense ? "text-[clamp(11px,calc(var(--pw)/13.4),14px)]" : "text-sm md:text-[15px]",
         )}
       >
         {person.role}
