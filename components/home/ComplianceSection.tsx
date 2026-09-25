@@ -5,8 +5,6 @@ import { motion } from "framer-motion";
 export default function ComplianceSection() {
   return (
     <section className="w-full bg-ecovis-white py-16 md:py-24 px-6 md:px-12 relative overflow-hidden">
-      <div className="absolute right-6 md:right-12 bottom-0 w-[1px] h-32 bg-ecovis-red" />
-      
       <div className="max-w-[1920px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
         <div className="col-span-1 md:col-span-8">
           <motion.div
