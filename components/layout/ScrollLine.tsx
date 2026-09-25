@@ -342,7 +342,7 @@ export default function ScrollLine() {
   return (
     <svg
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-30 overflow-visible"
+      className="pointer-events-none fixed inset-0 z-30 hidden overflow-visible md:block"
       style={{ width: "100vw", height: "100vh" }}
     >
       <defs>
