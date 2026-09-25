@@ -1,7 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowRight, ChevronDown } from "lucide-react";
 
 const expertiseAreas = [
   {
@@ -27,6 +28,8 @@ const expertiseAreas = [
 ];
 
 export default function ExpertiseSection() {
+  const [openArea, setOpenArea] = useState<number | null>(null);
+
   return (
     <section id="expertise" className="w-full bg-ecovis-white pt-6 md:pt-10 pb-8 md:pb-12">
       <div className="max-w-[1920px] mx-auto px-6 md:px-12">
@@ -40,39 +43,81 @@ export default function ExpertiseSection() {
         </motion.h2>
 
         <div className="flex flex-col border-t border-ecovis-black">
-          {expertiseAreas.map((area, index) => (
-            <motion.div
-              initial="initial"
-              whileHover="hover"
-              key={index}
-              className="group relative border-b border-ecovis-black overflow-hidden cursor-pointer"
-              data-cursor={`EXPLORE ${area.title}`}
-            >
-              <div className="absolute inset-0 bg-ecovis-black translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out z-0" />
-              
-              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-8 py-8 md:py-12 px-4 transition-colors duration-300 group-hover:text-ecovis-white">
-                <div className="flex items-center gap-6 md:gap-8 flex-1">
-                  <span className="text-xl md:text-2xl font-bold font-sans w-12 text-ecovis-red md:group-hover:text-ecovis-white transition-colors duration-300 shrink-0">
+          {expertiseAreas.map((area, index) => {
+            const isOpen = openArea === index;
+
+            return (
+              <motion.div
+                initial="initial"
+                whileHover="hover"
+                key={area.num}
+                className="group relative overflow-hidden border-b border-ecovis-black"
+                data-cursor={`EXPLORE ${area.title}`}
+              >
+                {/* Compact tap-to-read row on phones. */}
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  aria-controls={`expertise-description-${index}`}
+                  onClick={() => setOpenArea((current) => (current === index ? null : index))}
+                  className="relative z-10 flex w-full items-center gap-3 py-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ecovis-red md:hidden"
+                >
+                  <span className="w-10 shrink-0 font-sans text-lg font-bold text-ecovis-red">
                     {area.num}
                   </span>
-                  
-                  <h3 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-heading font-bold tracking-tight uppercase group-hover:scale-[1.02] transform origin-left transition-transform duration-500">
+                  <h3 className="min-w-0 flex-1 font-heading text-2xl font-bold uppercase tracking-tight min-[400px]:text-3xl">
                     {area.title}
                   </h3>
-                </div>
-                
-                <div className="flex items-center gap-6 md:gap-8 md:ml-auto">
-                  <p className="max-w-xs md:max-w-sm text-sm md:text-base font-sans leading-relaxed opacity-0 -translate-x-6 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 ease-out">
-                    {area.desc}
-                  </p>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={`size-5 shrink-0 transition-transform duration-300 ${isOpen ? "rotate-180 text-ecovis-red" : ""}`}
+                  />
+                </button>
 
-                  <div className="w-10 flex justify-end shrink-0">
-                    <ArrowRight className="w-6 h-6 md:w-8 md:h-8 -rotate-45 group-hover:rotate-0 transition-transform duration-500 shrink-0" />
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      id={`expertise-description-${index}`}
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.28, ease: "easeOut" }}
+                      className="relative z-10 overflow-hidden md:hidden"
+                    >
+                      <p className="pb-6 pl-[3.25rem] pr-7 text-sm leading-relaxed text-gray-600">
+                        {area.desc}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Original hover interaction on tablet and desktop. */}
+                <div className="absolute inset-0 z-0 hidden translate-y-full bg-ecovis-black transition-transform duration-500 ease-out group-hover:translate-y-0 md:block" />
+
+                <div className="relative z-10 hidden items-center justify-between gap-8 px-4 py-12 transition-colors duration-300 group-hover:text-ecovis-white md:flex">
+                  <div className="flex flex-1 items-center gap-8">
+                    <span className="w-12 shrink-0 font-sans text-2xl font-bold text-ecovis-red transition-colors duration-300 group-hover:text-ecovis-white">
+                      {area.num}
+                    </span>
+
+                    <h3 className="origin-left transform font-heading text-5xl font-bold uppercase tracking-tight transition-transform duration-500 group-hover:scale-[1.02] lg:text-6xl">
+                      {area.title}
+                    </h3>
+                  </div>
+
+                  <div className="ml-auto flex items-center gap-8">
+                    <p className="max-w-sm -translate-x-6 font-sans text-base leading-relaxed opacity-0 transition-all duration-500 ease-out group-hover:translate-x-0 group-hover:opacity-100">
+                      {area.desc}
+                    </p>
+
+                    <div className="flex w-10 shrink-0 justify-end">
+                      <ArrowRight className="size-8 shrink-0 -rotate-45 transition-transform duration-500 group-hover:rotate-0" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
       </div>
     </section>

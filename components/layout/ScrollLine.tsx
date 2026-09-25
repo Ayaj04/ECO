@@ -21,12 +21,18 @@ import { useEffect, useRef } from "react";
 
 const STROKE = 4;          // px – "thick" line
 const CORNER_R = 28;       // px – bezier corner radius for smooth turns
-const PAD_LEFT  = 24;      // distance from left viewport edge
-const PAD_RIGHT = 24;      // distance from right viewport edge
+const DESKTOP_GUTTER = 24;
+const MOBILE_GUTTER = 8;
+const MOBILE_BREAKPOINT = 640;
+
+/** Keep the decorative line out of the narrower mobile content and control gutters. */
+function getPageGutter(vw: number) {
+  return vw < MOBILE_BREAKPOINT ? MOBILE_GUTTER : DESKTOP_GUTTER;
+}
 
 /** Top-right start point for the serpentine scroll line */
 function getScrollLineAnchor(vw: number): [number, number] {
-  return [vw - PAD_RIGHT, 0];
+  return [vw - getPageGutter(vw), 0];
 }
 
 /** Build the full list of "key" points in document space. */
@@ -37,8 +43,9 @@ function buildDocumentPoints(
   startX: number,
   startY: number,
 ) {
-  const LEFT_GUTTER  = PAD_LEFT;
-  const RIGHT_GUTTER = vw - PAD_RIGHT;
+  const gutter = getPageGutter(vw);
+  const LEFT_GUTTER  = gutter;
+  const RIGHT_GUTTER = vw - gutter;
 
   const sections = Array.from(document.querySelectorAll<HTMLElement>("main > section"));
 
@@ -335,7 +342,7 @@ export default function ScrollLine() {
   return (
     <svg
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-40 overflow-visible"
+      className="pointer-events-none fixed inset-0 z-30 overflow-visible"
       style={{ width: "100vw", height: "100vh" }}
     >
       <defs>

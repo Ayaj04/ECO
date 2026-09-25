@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
-import { ArrowUpRight, ChevronDown } from "lucide-react";
+import { ArrowUpRight, ChevronDown, MoreVertical, X } from "lucide-react";
 import clsx from "clsx";
 import Image from "next/image";
 import CallButton from "./CallButton";
@@ -55,6 +55,9 @@ const navEntries: Array<LinkEntry | MenuEntry> = [
 const spyTargets = navEntries.flatMap((entry) =>
   entry.type === "link" ? [entry.id] : entry.spyId ? [entry.spyId] : [],
 );
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Smooth-scroll to a section (through Lenis when it is running) and record it in the address. */
 function scrollToHash(targetId: string) {
@@ -231,7 +234,10 @@ export default function Navbar() {
   const [activeTab, setActiveTab] = useState<string>("");
   const [isScrolled, setIsScrolled] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const mobilePanelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -268,6 +274,39 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const opener = mobileMenuButtonRef.current;
+    const previousOverflow = document.documentElement.style.overflow;
+    const lenis = (window as unknown as { lenis?: { stop: () => void; start: () => void } }).lenis;
+    document.documentElement.style.overflow = "hidden";
+    lenis?.stop();
+
+    const frame = requestAnimationFrame(() => mobilePanelRef.current?.focus());
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", onKeyDown);
+      document.documentElement.style.overflow = previousOverflow;
+      lenis?.start();
+      opener?.focus();
+    };
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 768px)");
+    const closeOnDesktop = () => {
+      if (desktop.matches) setMobileMenuOpen(false);
+    };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
+
   const handleTabClick = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
     e.preventDefault();
     setActiveTab(targetId);
@@ -278,6 +317,34 @@ export default function Navbar() {
   const setMenuOpen = (id: string, next: boolean) =>
     setOpenMenu((current) => (next ? id : current === id ? null : current));
 
+  const handleMobileNavigate = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    targetId: string,
+  ) => {
+    if (targetId.startsWith("#")) event.preventDefault();
+    setMobileMenuOpen(false);
+    if (targetId === "#") return;
+
+    setActiveTab(targetId);
+    requestAnimationFrame(() => scrollToHash(targetId));
+  };
+
+  const keepMobileFocusInside = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key !== "Tab" || !mobilePanelRef.current) return;
+    const items = Array.from(mobilePanelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
+    if (items.length === 0) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === mobilePanelRef.current)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
     // reducedMotion="user" drops the slide and scale animations for visitors who ask for less motion
     <MotionConfig reducedMotion="user">
@@ -286,7 +353,7 @@ export default function Navbar() {
         <a
           href="#"
           aria-label="ECOVIS Home"
-          className={`flex items-center px-3 py-2 rounded-full border transition-all duration-500 ${
+          className={`flex items-center rounded-full border px-2 py-1.5 transition-all duration-500 md:px-3 md:py-2 ${
             isScrolled
               ? "bg-ecovis-black/90 border-white/20 shadow-2xl shadow-black/40 backdrop-blur-xl"
               : "bg-transparent border-transparent"
@@ -298,12 +365,139 @@ export default function Navbar() {
             width={160}
             height={56}
             priority
-            className="h-10 md:h-12 w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.18)]"
+            className="h-8 w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.18)] md:h-12"
           />
         </a>
       </div>
 
-      <header className="fixed top-6 md:top-8 right-3 min-[400px]:right-6 md:right-10 z-40">
+      <button
+        ref={mobileMenuButtonRef}
+        type="button"
+        aria-label="Open navigation menu"
+        aria-controls="mobile-navigation"
+        aria-expanded={mobileMenuOpen}
+        onClick={() => setMobileMenuOpen(true)}
+        className="fixed right-4 top-4 z-[60] grid size-11 place-items-center rounded-full border border-white/20 bg-ecovis-black/90 text-white shadow-xl shadow-black/25 backdrop-blur-xl outline-none transition-colors hover:bg-ecovis-red focus-visible:ring-2 focus-visible:ring-ecovis-red focus-visible:ring-offset-2 md:hidden"
+      >
+        <MoreVertical aria-hidden="true" className="size-5" />
+      </button>
+
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            key="mobile-navigation"
+            className="fixed inset-0 z-[70] md:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 bg-black/55 backdrop-blur-sm"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+
+            <motion.aside
+              ref={mobilePanelRef}
+              id="mobile-navigation"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="mobile-navigation-title"
+              tabIndex={-1}
+              onKeyDown={keepMobileFocusInside}
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 320, damping: 34 }}
+              className="absolute right-0 top-0 flex h-dvh w-[84vw] max-w-xs flex-col overflow-y-auto border-l border-white/15 bg-ecovis-black px-6 pb-8 pt-5 text-white shadow-[-24px_0_70px_rgba(0,0,0,0.4)] outline-none"
+            >
+              <div className="flex items-center justify-between border-b border-white/15 pb-5">
+                <div>
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.28em] text-ecovis-red">
+                    ECOVIS RKCA
+                  </p>
+                  <h2 id="mobile-navigation-title" className="font-heading text-lg font-semibold">
+                    Navigation
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close navigation menu"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="grid size-10 place-items-center rounded-full border border-white/15 text-gray-300 outline-none transition-colors hover:border-ecovis-red hover:bg-ecovis-red hover:text-white focus-visible:ring-2 focus-visible:ring-ecovis-red"
+                >
+                  <X aria-hidden="true" className="size-5" />
+                </button>
+              </div>
+
+              <nav aria-label="Mobile navigation" className="flex flex-1 flex-col py-5">
+                {navEntries.map((entry, index) => {
+                  const targetId = entry.type === "link" ? entry.id : entry.spyId;
+                  const isActive = Boolean(targetId) && activeTab === targetId;
+
+                  return (
+                    <div key={entry.type === "link" ? entry.id : entry.menuId} className="border-b border-white/10 py-2">
+                      {targetId ? (
+                        <a
+                          href={targetId}
+                          onClick={(event) => handleMobileNavigate(event, targetId)}
+                          className="group flex items-center gap-4 rounded-xl px-2 py-4 outline-none transition-colors hover:bg-white/10 focus-visible:bg-white/10"
+                        >
+                          <span className="w-5 text-[10px] font-bold tracking-widest text-white/35">
+                            {String(index + 1).padStart(2, "0")}
+                          </span>
+                          <span className="flex-1 font-heading text-sm font-bold uppercase tracking-[0.16em]">
+                            {entry.label}
+                          </span>
+                          <span
+                            aria-hidden="true"
+                            className={clsx(
+                              "size-2 rounded-full transition-colors",
+                              isActive ? "bg-ecovis-red" : "bg-white/20 group-hover:bg-ecovis-red",
+                            )}
+                          />
+                        </a>
+                      ) : (
+                        <div className="flex items-center gap-4 px-2 pb-2 pt-4">
+                          <span className="w-5 text-[10px] font-bold tracking-widest text-white/35">
+                            {String(index + 1).padStart(2, "0")}
+                          </span>
+                          <span className="font-heading text-sm font-bold uppercase tracking-[0.16em]">
+                            {entry.label}
+                          </span>
+                        </div>
+                      )}
+
+                      {entry.type === "menu" && (
+                        <div role="group" aria-label={`${entry.label} links`} className="mb-2 ml-11 flex flex-col">
+                          {entry.items.map((item) => (
+                            <a
+                              key={item.label}
+                              href={item.href}
+                              onClick={(event) => handleMobileNavigate(event, item.href)}
+                              className="flex items-center justify-between rounded-lg px-2 py-2.5 text-xs font-medium uppercase tracking-[0.14em] text-gray-400 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:bg-white/10 focus-visible:text-white"
+                            >
+                              {item.label}
+                              <ArrowUpRight aria-hidden="true" className="size-3.5" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </nav>
+
+              <p className="pt-5 text-[10px] font-medium uppercase tracking-[0.2em] text-white/35">
+                Finance · Technology · Compliance · Legal
+              </p>
+            </motion.aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <header className="fixed right-10 top-8 z-40 hidden md:block">
         <nav
           aria-label="Quick navigation"
           className={`relative z-20 flex items-center gap-0.5 min-[400px]:gap-1 md:gap-2 px-1.5 py-1.5 min-[400px]:px-2 md:px-3 md:py-2 rounded-full border transition-all duration-500 backdrop-blur-xl ${
@@ -367,7 +561,7 @@ export default function Navbar() {
       </header>
 
       {/* Floating Contact/Message button — fixed bottom-right */}
-      <div className="fixed bottom-6 right-4 sm:right-6 md:bottom-8 md:right-8 z-40">
+      <div className="fixed bottom-6 right-4 sm:right-6 md:bottom-8 md:right-8 z-50">
         <CallButton onOpen={() => setContactOpen(true)} />
       </div>
 

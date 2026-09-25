@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Globe2, MapPin, X } from "lucide-react";
+import { ChevronDown, Search, Globe2, MapPin, X } from "lucide-react";
 
 interface Country {
   name: string;
@@ -153,6 +153,7 @@ const TOTAL_COUNTRIES = REGIONS.reduce((sum, r) => sum + r.countries.length, 0);
 export default function GlobalPresenceSection() {
   const [selectedRegion, setSelectedRegion] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [mobileDirectoryOpen, setMobileDirectoryOpen] = useState(false);
 
   const filteredRegions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -186,11 +187,11 @@ export default function GlobalPresenceSection() {
   return (
     <section
       id="countries-network"
-      className="w-full bg-[#FCFCFA] text-ecovis-black py-20 sm:py-28 px-6 sm:px-10 md:px-16 lg:px-20 border-t border-gray-200 relative overflow-hidden"
+      className="relative w-full overflow-hidden border-t border-gray-200 bg-[#FCFCFA] px-5 py-12 text-ecovis-black sm:px-10 sm:py-20 md:px-16 md:py-28 lg:px-20"
     >
       <div className="max-w-[1600px] mx-auto">
         {/* Section Header */}
-        <div className="mb-14 sm:mb-20">
+        <div className="mb-7 sm:mb-14 md:mb-20">
           <div className="flex items-center gap-2 mb-3">
             <span className="h-2 w-2 rounded-full bg-ecovis-red animate-pulse" />
             <span className="text-xs sm:text-sm font-bold uppercase tracking-[0.28em] text-ecovis-red">
@@ -217,7 +218,11 @@ export default function GlobalPresenceSection() {
                   type="text"
                   placeholder="Search any country..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setMobileDirectoryOpen(true)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (e.target.value.trim()) setMobileDirectoryOpen(true);
+                  }}
                   className="w-full pl-10 pr-9 py-2.5 bg-white border border-gray-300 rounded-full text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-ecovis-red focus:ring-2 focus:ring-ecovis-red/15 transition-all shadow-xs"
                 />
                 {searchQuery && (
@@ -242,10 +247,13 @@ export default function GlobalPresenceSection() {
           </div>
 
           {/* Region Filter Buttons */}
-          <div className="mt-8 flex flex-wrap items-center gap-2 pt-4 border-t border-gray-200/70">
+          <div className="mt-6 flex flex-nowrap items-center gap-2 overflow-x-auto border-t border-gray-200/70 pt-4 pb-1 sm:mt-8 md:flex-wrap md:overflow-visible md:pb-0">
             <button
-              onClick={() => setSelectedRegion("all")}
-              className={`px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold tracking-wide transition-all ${
+              onClick={() => {
+                setSelectedRegion("all");
+                setMobileDirectoryOpen(true);
+              }}
+              className={`shrink-0 px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold tracking-wide transition-all ${
                 selectedRegion === "all"
                   ? "bg-ecovis-black text-white shadow-sm"
                   : "bg-white text-gray-600 hover:text-ecovis-black border border-gray-200 hover:border-gray-300"
@@ -258,8 +266,11 @@ export default function GlobalPresenceSection() {
               return (
                 <button
                   key={r.id}
-                  onClick={() => setSelectedRegion(r.id)}
-                  className={`px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold tracking-wide transition-all ${
+                  onClick={() => {
+                    setSelectedRegion(r.id);
+                    setMobileDirectoryOpen(true);
+                  }}
+                  className={`shrink-0 px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold tracking-wide transition-all ${
                     active
                       ? "bg-ecovis-red text-white shadow-sm"
                       : "bg-white text-gray-600 hover:text-ecovis-black border border-gray-200 hover:border-gray-300"
@@ -272,74 +283,109 @@ export default function GlobalPresenceSection() {
           </div>
         </div>
 
-        {/* Regions Listing */}
-        {filteredRegions.length === 0 ? (
-          <div className="py-20 text-center bg-white rounded-xl border border-dashed border-gray-300">
-            <MapPin className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <h3 className="text-lg font-bold text-gray-700">No countries match your search</h3>
-            <p className="text-sm text-gray-500 mt-1">
-              Try searching for a different keyword or reset the filters.
-            </p>
-            <button
-              onClick={() => {
-                setSearchQuery("");
-                setSelectedRegion("all");
-              }}
-              className="mt-4 px-4 py-2 text-xs font-bold uppercase tracking-wider text-ecovis-red hover:underline"
-            >
-              Reset Filters
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-16 sm:space-y-20">
-            <AnimatePresence mode="popLayout">
-              {filteredRegions.map((region) => (
-                <motion.div
-                  key={region.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.4 }}
-                  className="relative"
+        <button
+          type="button"
+          aria-expanded={mobileDirectoryOpen}
+          aria-controls="countries-directory"
+          onClick={() => setMobileDirectoryOpen((open) => !open)}
+          className="mb-4 flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-left shadow-sm outline-none transition-colors hover:border-ecovis-red focus-visible:ring-2 focus-visible:ring-ecovis-red md:hidden"
+        >
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-ecovis-red/10 text-ecovis-red">
+            <Globe2 aria-hidden="true" className="size-4" />
+          </span>
+          <span className="flex-1">
+            <span className="block text-sm font-bold text-gray-900">
+              {mobileDirectoryOpen ? "Hide country directory" : `Browse ${TOTAL_COUNTRIES} countries`}
+            </span>
+            <span className="mt-0.5 block text-xs text-gray-500">
+              Search or choose a region to narrow the list
+            </span>
+          </span>
+          <ChevronDown
+            aria-hidden="true"
+            className={`size-5 shrink-0 transition-transform duration-300 ${mobileDirectoryOpen ? "rotate-180" : ""}`}
+          />
+        </button>
+
+        {/* The mobile directory scrolls inside a fixed-height panel instead of extending the page. */}
+        <div
+          id="countries-directory"
+          className={`${mobileDirectoryOpen ? "block" : "hidden"} md:block`}
+        >
+          <div
+            data-lenis-prevent
+            className="max-h-[26rem] overflow-y-auto overscroll-contain rounded-xl border border-gray-200 bg-white p-4 pr-2 shadow-inner md:max-h-none md:overflow-visible md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none"
+          >
+            {/* Regions Listing */}
+            {filteredRegions.length === 0 ? (
+              <div className="py-12 text-center md:py-20 md:bg-white md:rounded-xl md:border md:border-dashed md:border-gray-300">
+                <MapPin className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-gray-700">No countries match your search</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Try searching for a different keyword or reset the filters.
+                </p>
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedRegion("all");
+                  }}
+                  className="mt-4 px-4 py-2 text-xs font-bold uppercase tracking-wider text-ecovis-red hover:underline"
                 >
-                  {/* Region Title with signature red underline bar matching reference image */}
-                  <div className="mb-8">
-                    <h3 className="text-2xl sm:text-3xl md:text-[2rem] font-heading font-medium text-gray-900 tracking-tight">
-                      {region.name}
-                    </h3>
-                    {/* The iconic red underline matching the reference screenshot */}
-                    <div className="w-12 sm:w-14 h-[3px] bg-ecovis-red mt-2.5 rounded-full" />
-                  </div>
-
-                  {/* 4-Column Grid matching reference images */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 sm:gap-x-8 md:gap-x-10 gap-y-4 sm:gap-y-5">
-                    {region.countries.map((country) => (
-                      <div
-                        key={country.name}
-                        className="group flex items-center gap-3.5 py-1.5 px-2 rounded-md hover:bg-white hover:shadow-xs transition-all duration-200"
-                      >
-                        {/* Standardized Flag Badge Container */}
-                        <div className="relative w-8 h-[22px] sm:w-[34px] sm:h-[23px] shrink-0 overflow-hidden rounded-[2px] shadow-xs border border-black/10 bg-white flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
-                          <img
-                            src={`/images/flags/${country.code}.svg`}
-                            alt={`${country.name} flag`}
-                            loading="lazy"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-
-                        {/* Country Label */}
-                        <span className="text-[14px] sm:text-[15px] font-sans text-gray-800 font-normal tracking-tight group-hover:text-ecovis-red group-hover:translate-x-0.5 transition-all duration-200">
-                          {country.name}
-                        </span>
+                  Reset Filters
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-9 sm:space-y-14 md:space-y-20">
+                <AnimatePresence mode="popLayout">
+                  {filteredRegions.map((region) => (
+                    <motion.div
+                      key={region.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.4 }}
+                      className="relative"
+                    >
+                      {/* Region Title with signature red underline bar matching reference image */}
+                      <div className="mb-4 sm:mb-6 md:mb-8">
+                        <h3 className="text-xl sm:text-3xl md:text-[2rem] font-heading font-medium text-gray-900 tracking-tight">
+                          {region.name}
+                        </h3>
+                        {/* The iconic red underline matching the reference screenshot */}
+                        <div className="w-10 sm:w-14 h-[3px] bg-ecovis-red mt-2.5 rounded-full" />
                       </div>
-                    ))}
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+
+                      {/* 4-Column Grid matching reference images */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 sm:gap-x-8 md:gap-x-10 gap-y-2 sm:gap-y-5">
+                        {region.countries.map((country) => (
+                          <div
+                            key={country.name}
+                            className="group flex items-center gap-3.5 py-1.5 px-2 rounded-md hover:bg-white hover:shadow-xs transition-all duration-200"
+                          >
+                            {/* Standardized Flag Badge Container */}
+                            <div className="relative w-8 h-[22px] sm:w-[34px] sm:h-[23px] shrink-0 overflow-hidden rounded-[2px] shadow-xs border border-black/10 bg-white flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
+                              <img
+                                src={`/images/flags/${country.code}.svg`}
+                                alt={`${country.name} flag`}
+                                loading="lazy"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+
+                            {/* Country Label */}
+                            <span className="text-[14px] sm:text-[15px] font-sans text-gray-800 font-normal tracking-tight group-hover:text-ecovis-red group-hover:translate-x-0.5 transition-all duration-200">
+                              {country.name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </section>
   );
