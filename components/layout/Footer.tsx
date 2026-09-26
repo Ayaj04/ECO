@@ -8,7 +8,7 @@ export default function Footer() {
       <div className="max-w-[1920px] mx-auto flex flex-col">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div className="col-span-1 md:col-span-2">
-            <Link href="/" className="flex flex-col leading-none mb-8 inline-block" data-cursor="HOME">
+            <Link href="/" className="flex flex-col leading-none mb-6 inline-block" data-cursor="HOME">
               <span className="font-heading font-bold text-3xl tracking-tighter text-ecovis-white flex items-center">
                 ECOVIS
                 <span className="w-2 h-2 bg-ecovis-red ml-1 rounded-sm"></span>
@@ -17,6 +17,26 @@ export default function Footer() {
                 RKCA
               </span>
             </Link>
+
+            {OFFICES.map((office) => (
+              <a
+                key={office.id}
+                href={mapsUrl(office)}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-cursor="MAP"
+                aria-label={`Open ${office.label} office in Google Maps: ${fullAddress(office)}`}
+                className="group flex max-w-sm items-start gap-3 rounded-xl p-2 -m-2 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ecovis-red/70"
+              >
+                <MapPin
+                  aria-hidden="true"
+                  className="mt-0.5 size-5 shrink-0 text-ecovis-red transition-transform duration-300 group-hover:scale-110"
+                />
+                <span className="text-sm leading-relaxed text-gray-400 transition-colors group-hover:text-gray-300">
+                  {office.street}, {office.locality}, {office.region} {office.postalCode}
+                </span>
+              </a>
+            ))}
           </div>
 
           <div className="col-span-1 flex flex-col gap-4">
@@ -32,36 +52,6 @@ export default function Footer() {
             <Link href="/#about" className="text-sm font-medium text-gray-400 hover:text-ecovis-white transition-colors uppercase tracking-widest">About</Link>
             <Link href="/privacy-policy" className="text-sm font-medium text-gray-400 hover:text-ecovis-white transition-colors uppercase tracking-widest">Privacy Policy</Link>
             <Link href="#" className="text-sm font-medium text-gray-400 hover:text-ecovis-white transition-colors uppercase tracking-widest">LinkedIn</Link>
-          </div>
-        </div>
-
-        <div className="mb-24 border-t border-gray-800 pt-12">
-          <span className="mb-6 block text-xs font-bold tracking-[0.2em] uppercase text-ecovis-red">Our Offices</span>
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {OFFICES.map((office) => (
-              <a
-                key={office.id}
-                href={mapsUrl(office)}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-cursor="MAP"
-                aria-label={`Open ${office.label} office in Google Maps: ${fullAddress(office)}`}
-                className="group flex items-start gap-3 rounded-xl p-2 -m-2 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ecovis-red/70"
-              >
-                <MapPin
-                  aria-hidden="true"
-                  className="mt-0.5 size-5 shrink-0 text-ecovis-red transition-transform duration-300 group-hover:scale-110"
-                />
-                <span>
-                  <span className="block text-sm font-bold uppercase tracking-widest text-ecovis-white">
-                    {office.label}
-                  </span>
-                  <span className="mt-1 block text-sm leading-relaxed text-gray-400 transition-colors group-hover:text-gray-300">
-                    {office.street}, {office.locality}, {office.region} {office.postalCode}
-                  </span>
-                </span>
-              </a>
-            ))}
           </div>
         </div>
 
