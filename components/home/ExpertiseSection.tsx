@@ -39,7 +39,7 @@ export default function ExpertiseSection() {
           viewport={{ once: true }}
           className="text-4xl md:text-5xl font-heading font-bold mb-8 md:mb-10 uppercase tracking-tighter"
         >
-          WHAT WE DO
+          OUR CORE ADVISORY SERVICES
         </motion.h2>
 
         <div className="flex flex-col border-t border-ecovis-black">

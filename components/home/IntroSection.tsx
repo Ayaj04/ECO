@@ -14,8 +14,8 @@ export default function IntroSection() {
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-heading font-bold text-ecovis-black leading-[1.08] tracking-tight uppercase"
           >
-            BUSINESS IS COMPLEX. <br />
-            <span className="text-ecovis-red">YOUR ADVISORY SHOULDN&apos;T BE.</span>
+            INTEGRATED PROFESSIONAL SERVICES ACROSS <br />
+            <span className="text-ecovis-red">FINANCE, TECHNOLOGY, COMPLIANCE AND LEGAL.</span>
           </motion.h2>
         </div>
         

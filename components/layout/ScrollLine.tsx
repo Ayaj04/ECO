@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 
 /**
  * Serpentine scroll-progress line.
@@ -266,6 +267,10 @@ function buildPartialPath(
 }
 
 export default function ScrollLine() {
+  /** Only the homepage has the `main > section` structure this line is drawn around. */
+  const pathname = usePathname();
+  const onHomepage = pathname === "/";
+
   const lineRef      = useRef<SVGPathElement>(null);
   const dotRef       = useRef<SVGCircleElement>(null);
   const glowRef      = useRef<SVGCircleElement>(null);
@@ -274,6 +279,8 @@ export default function ScrollLine() {
   const rafRef       = useRef<number>(0);
 
   useEffect(() => {
+    if (!onHomepage) return;
+
     const render = () => {
       const vw    = window.innerWidth;
       const vh    = window.innerHeight;
@@ -337,7 +344,9 @@ export default function ScrollLine() {
       window.removeEventListener("resize", schedule);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, []);
+  }, [onHomepage]);
+
+  if (!onHomepage) return null;
 
   return (
     <svg

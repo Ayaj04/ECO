@@ -217,7 +217,7 @@ const STAGES: Stage[] = [
       {
         name: "Sanjeev Bindal",
         role: "Legal",
-        photo: "/images/board/pankaj-bhargava.webp",
+        photo: "/images/board/sanjeev-bindal.webp",
         linkedin: "https://www.linkedin.com/in/sanjeev-bindal-3a588b15/",
         bioItems: [
           {
@@ -237,7 +237,7 @@ const STAGES: Stage[] = [
       {
         name: "Pankaj Bhargava",
         role: "Strategic & Performance",
-        photo: "/images/board/sanjeev-bindal.webp",
+        photo: "/images/board/pankaj-bhargava.webp",
         linkedin: "https://www.linkedin.com/in/pankaj-bhargava-669b775/",
         bioItems: [
           {

@@ -2,12 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { animate, motion, useInView, useMotionValue, useTransform } from "framer-motion";
-
-const stats = [
-  { value: 1500, label: "CLIENTS" },
-  { value: 50, label: "YEARS OF EXPERIENCE" },
-  { value: 90, label: "COUNTRY GLOBAL NETWORK" },
-] as const;
+import { STATS } from "@/lib/stats";
 
 /** Every number takes this long to count up, so they all arrive together. */
 const COUNT_SECONDS = 2.4;
@@ -47,7 +42,7 @@ export default function StatsSection() {
   return (
     <section className="w-full bg-ecovis-black py-32 px-6 md:px-12 border-t border-gray-800">
       <div className="max-w-[1920px] mx-auto grid grid-cols-1 sm:grid-cols-3 gap-12 md:gap-8">
-        {stats.map((stat, index) => (
+        {STATS.map((stat, index) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, scale: 0.9 }}

@@ -220,8 +220,11 @@ export default function RKCAGlobalSection() {
     return () => controls.stop();
   }, [isLanded, reduceMotion, reveal]);
 
+  // Reads mapScale (updated only on real resize, via the ResizeObserver above) instead of the
+  // DOM directly — this callback fires every animation frame during the reveal, and a live
+  // offsetWidth read there forces a synchronous layout reflow each time, causing the stutter.
   const maskImage = useTransform(reveal, (t) => {
-    const w = mapRef.current?.offsetWidth ?? 1400;
+    const w = MAP.width * mapScale;
     const r = t * w * 1.05;
     return `radial-gradient(circle at ${MAP.hub.x}% ${MAP.hub.y}%, #000 ${r * 0.7}px, transparent ${r}px)`;
   });

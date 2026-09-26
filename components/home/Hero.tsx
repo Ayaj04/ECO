@@ -44,9 +44,9 @@ export default function Hero() {
           className="flex flex-col gap-6"
         >
           <motion.div variants={itemVariants} className="overflow-hidden">
-            <h2 className="text-sm md:text-base font-semibold tracking-widest text-ecovis-dark uppercase mb-2">
-              We help businesses move forward.
-            </h2>
+            <h1 className="text-sm md:text-base font-semibold tracking-widest text-ecovis-dark uppercase mb-2">
+              Finance, Technology, Compliance &amp; Legal Advisory for Growing Businesses
+            </h1>
           </motion.div>
 
           <div className="flex flex-col text-fluid-hero text-ecovis-black font-heading leading-[1.05] tracking-tight">

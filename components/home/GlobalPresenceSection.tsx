@@ -360,7 +360,7 @@ export default function GlobalPresenceSection() {
                         {region.countries.map((country) => (
                           <div
                             key={country.name}
-                            className="group flex items-center gap-3.5 py-1.5 px-2 rounded-md hover:bg-white hover:shadow-xs transition-all duration-200"
+                            className="group flex items-center gap-3.5 py-1.5 px-2 rounded-md hover:bg-white hover:shadow-xs transition-[background-color,box-shadow] duration-200 [content-visibility:auto] [contain-intrinsic-size:auto_35px]"
                           >
                             {/* Standardized Flag Badge Container */}
                             <div className="relative w-8 h-[22px] sm:w-[34px] sm:h-[23px] shrink-0 overflow-hidden rounded-[2px] shadow-xs border border-black/10 bg-white flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
@@ -373,7 +373,7 @@ export default function GlobalPresenceSection() {
                             </div>
 
                             {/* Country Label */}
-                            <span className="text-[14px] sm:text-[15px] font-sans text-gray-800 font-normal tracking-tight group-hover:text-ecovis-red group-hover:translate-x-0.5 transition-all duration-200">
+                            <span className="text-[14px] sm:text-[15px] font-sans text-gray-800 font-normal tracking-tight group-hover:text-ecovis-red group-hover:translate-x-0.5 transition-[color,transform] duration-200">
                               {country.name}
                             </span>
                           </div>
